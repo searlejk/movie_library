@@ -1,8 +1,10 @@
 import sys
+import time
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
                               QFrame)
 from PyQt6.QtCore import (Qt, QRectF, QPropertyAnimation, QEasingCurve,
-                           QParallelAnimationGroup, pyqtProperty, QPointF)
+                           QParallelAnimationGroup,
+                           pyqtProperty, QPointF)
 from PyQt6.QtGui import (QPainter, QColor, QFont, QFontMetrics, QPen,
                           QBrush, QLinearGradient)
 
@@ -95,6 +97,7 @@ class GridWidget(QWidget):
         self._card_w = card_w
         self._card_h = card_h
         self._spacing = spacing
+        self._row_spacing = spacing // 2
         self._margin = margin
         self._current = 0
 
@@ -104,9 +107,10 @@ class GridWidget(QWidget):
 
         cell_w = int(card_w * 1.35)
         cell_h = int(card_h * 1.35)
+        self._row_step = cell_h + self._row_spacing
 
         total_width = margin * 2 + cols * cell_w + (cols - 1) * spacing
-        total_height = margin * 2 + self._rows * cell_h + (self._rows - 1) * spacing
+        total_height = margin * 2 + self._rows * cell_h + (self._rows - 1) * self._row_spacing
 
         self.setFixedSize(total_width, total_height)
 
@@ -115,7 +119,7 @@ class GridWidget(QWidget):
             row = i // cols
             col = i % cols
             x = margin + col * (cell_w + spacing)
-            y = margin + row * (cell_h + spacing)
+            y = margin + row * self._row_step
             card.move(x, y)
             self._cards.append(card)
 
@@ -191,8 +195,15 @@ class MainWindow(QWidget):
         # ==================== SCROLL ANIMATION SPEED ====================
         # Tweak this number to control keyboard navigation scroll speed.
         # Lower = faster, Higher = slower (milliseconds)
-        self.SCROLL_ANIMATION_MS = 1200
+        self.SCROLL_ANIMATION_MS = 1550
         # ================================================================
+
+        # =================== VERTICAL INPUT COOLDOWN ====================
+        # Tweak this number to limit how quickly UP/DOWN can repeat.
+        # Lower = more responsive, Higher = more delay (milliseconds)
+        self.VERTICAL_INPUT_COOLDOWN_MS = 150
+        # ================================================================
+        self._last_vertical_input_ms = 0
 
         screen = QApplication.primaryScreen().availableGeometry()
         screen_w = screen.width()
@@ -260,9 +271,13 @@ class MainWindow(QWidget):
 
     def _animate_scroll_to_card(self, card):
         bar = self._scroll.verticalScrollBar()
-        viewport_h = self._scroll.viewport().height()
-        target = card.y() + card.height() // 2 - viewport_h // 2
+        row = card._index // self._grid._cols
+        top_row = (row // 2) * 2
+        target = top_row * self._grid._row_step
         target = max(bar.minimum(), min(bar.maximum(), target))
+
+        if target == bar.value():
+            return
 
         self._scroll_anim.stop()
         self._scroll_anim.setStartValue(bar.value())
@@ -286,6 +301,11 @@ class MainWindow(QWidget):
             return
 
         if direction:
+            if direction in ("up", "down"):
+                now_ms = int(time.monotonic() * 1000)
+                if now_ms - self._last_vertical_input_ms < self.VERTICAL_INPUT_COOLDOWN_MS:
+                    return
+                self._last_vertical_input_ms = now_ms
             card = self._grid.move_selection(direction)
             self._animate_scroll_to_card(card)
         else:
