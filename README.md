@@ -18,6 +18,18 @@ To run the application, execute the following command:
 python main.py
 ```
 
+Before testing the full flow, you can run the standalone video player demo:
+
+```bash
+python video_player.py
+```
+
+Then run the main app:
+
+```bash
+python main.py
+```
+
 ## Todo
 
 - [x] Implement a search bar that expands on selection.
@@ -51,7 +63,11 @@ python main.py
 - [x] Store when each video was watched last
 - [x] Store the data of the timestamp I stopped the video at (only for the most recent 3 movies)
 - [x] Add a visual indicator that the timestamp is saved for a movie, this should be visible on search and home menu
+- [x] When a movie has a timestamp the duration should update duration/last watched to display only the remaining duration of the movie, say: 30min left
 
-- [ ] When a movie has a timestamp the duration should update to be the remaining duration of the movie, say: 30min left
 - [ ] Allow for sorting the movies based on when they were watched last
+- [ ]
+- [ ]
+- [ ]
+- [ ]
 - [ ]

@@ -1,6 +1,7 @@
 import sys
 import time
 import json
+import math
 from pathlib import Path
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
@@ -993,36 +994,46 @@ class MainWindow(QWidget):
         self._search_panel.refresh_subtitles()
 
     def _format_duration(self, total_seconds):
-        total_seconds = max(0, int(total_seconds))
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
+        total_seconds = max(0, float(total_seconds))
+        total_minutes = max(1, int(math.ceil(total_seconds / 60.0)))
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+
+        if hours > 0 and minutes > 0:
+            return f"{hours}h {minutes}min"
         if hours > 0:
-            return f"{hours}h {minutes}m"
-        if minutes > 0:
-            return f"{minutes}m {seconds}s"
-        return f"{seconds}s"
+            return f"{hours}h"
+        return f"{total_minutes}min"
 
     def _format_last_watched(self, when):
         if when is None:
-            return "Never watched"
+            return "Last watched never"
 
         delta = datetime.now() - when
         days = delta.days
         if days >= 1:
-            return f"{days}d ago"
+            unit = "day" if days == 1 else "days"
+            return f"Last watched {days} {unit} ago"
 
         hours = delta.seconds // 3600
         if hours >= 1:
-            return f"{hours}h ago"
+            unit = "hour" if hours == 1 else "hours"
+            return f"Last watched {hours} {unit} ago"
 
         minutes = max(1, delta.seconds // 60)
-        return f"{minutes}m ago"
+        unit = "minute" if minutes == 1 else "minutes"
+        return f"Last watched {minutes} {unit} ago"
 
     def _subtitle_for_animal(self, animal_name):
-        duration = self._format_duration(self._duration_seconds_by_animal.get(animal_name, 15))
+        duration_seconds = self._duration_seconds_by_animal.get(animal_name, 15)
+        resume_ms = self._resume_positions_ms.get(animal_name)
+
+        if resume_ms is not None:
+            remaining_seconds = max(0.0, float(duration_seconds) - (float(resume_ms) / 1000.0))
+            return f"{self._format_duration(remaining_seconds)} left"
+
         watched = self._format_last_watched(self._last_watched_by_animal.get(animal_name))
-        return f"{duration} • {watched}"
+        return f"{self._format_duration(duration_seconds)} • {watched}"
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

@@ -2,25 +2,29 @@
   "last_watched_iso": {
     "Aardvark": "2026-04-02T17:03:57.286032",
     "Albatross": "2026-04-02T17:03:44.012204",
-    "Alligator": "2026-04-02T17:04:23.222642",
+    "Alligator": "2026-04-02T17:14:39.026871",
     "Alpaca": "2026-04-02T17:03:51.961926",
-    "Badger": "2026-04-02T17:05:01.256822"
+    "Badger": "2026-04-02T17:08:58.359674",
+    "Deer": "2026-04-02T17:06:02.003559",
+    "Donkey": "2026-04-02T17:09:06.520130"
   },
   "resume_order": [
-    "Alpaca",
-    "Alligator",
-    "Badger"
+    "Badger",
+    "Donkey",
+    "Alligator"
   ],
   "resume_positions_ms": {
-    "Alligator": 9933,
-    "Alpaca": 1033,
-    "Badger": 5066
+    "Alligator": 1233,
+    "Badger": 8933,
+    "Donkey": 12500
   },
   "watch_qualified": {
     "Aardvark": true,
     "Albatross": true,
     "Alligator": true,
     "Alpaca": true,
-    "Badger": true
+    "Badger": true,
+    "Deer": true,
+    "Donkey": true
   }
 }
