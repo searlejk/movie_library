@@ -22,7 +22,7 @@ class VideoPlayer(QWidget):
         self.player.setVideoOutput(self.video_widget)
 
         btn_style_normal = (
-            "QPushButton { color: #cdd3e5; background: #2e3448; border: 1px solid #4a5168;"
+            "QPushButton { color: #cdd3e5; background: #2e3448; border: 2px solid #4a5168;"
             "border-radius: 8px; padding: 8px; font-size: 13px; }"
             "QPushButton:hover { background: #3f4f72; border-color: #73c0ff; }")
         btn_style_selected = (
@@ -49,6 +49,7 @@ class VideoPlayer(QWidget):
 
         for btn in self._buttons:
             btn.setStyleSheet(btn_style_normal)
+            btn.setFixedHeight(36)
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
