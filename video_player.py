@@ -8,6 +8,8 @@ from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QTimer
 
 class VideoPlayer(QWidget):
     back_pressed = pyqtSignal()
+    back_transition_started = pyqtSignal()
+    EXIT_FADE_MS = 300
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -20,6 +22,7 @@ class VideoPlayer(QWidget):
         self.player.setAudioOutput(self.audio)
         self.video_widget = QVideoWidget()
         self.player.setVideoOutput(self.video_widget)
+        self._is_exiting = False
 
         btn_style_normal = (
             "QPushButton { color: #cdd3e5; background: #2e3448; border: 2px solid #4a5168;"
@@ -156,7 +159,17 @@ class VideoPlayer(QWidget):
             self._on_back()
 
     def _on_back(self):
+        if self._is_exiting:
+            return
+        self._is_exiting = True
+        self.back_transition_started.emit()
+        self._inactivity_timer.stop()
+        self._show_controls()
+        QTimer.singleShot(self.EXIT_FADE_MS, self._finish_back_transition)
+
+    def _finish_back_transition(self):
         self.stop_video()
+        self._is_exiting = False
         self.back_pressed.emit()
 
     def _refresh_btn_styles(self):
@@ -171,6 +184,10 @@ class VideoPlayer(QWidget):
         btn.click()
 
     def keyPressEvent(self, event):
+        if self._is_exiting:
+            event.accept()
+            return
+
         key = event.key()
 
         # If controls are hidden, first arrow-key press only reveals controls
@@ -197,6 +214,9 @@ class VideoPlayer(QWidget):
             self._press_current()
         else:
             super().keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
 
 
 if __name__ == "__main__":

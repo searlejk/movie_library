@@ -36,8 +36,9 @@ python main.py
 - [x] A press from any of the arrow keys should make them appear and I should be on the pause button
 - [x] Make it so the buttons don't disappear as long as it is paused
 - [x] If I press enter it should pause the video.
+- [x] Have the video player return to previous screen once the mp4 video is done playing
+- [x] Add a animation for when the back button is pressed, or the mp4 video is done playing (its not pretty but its something)
 
-- [ ] Have the video player return to previous screen once the mp4 video is done playing
 - [ ] Create a way to store hundreds of mp4 files in an organized way
 - [ ] Have a program make mp4 videos that are 30 seconds long of each animal name just being displayed on the screen, white text on black background
 - [ ] Store each of those videos in their correct place

@@ -1,7 +1,8 @@
 import sys
 import time
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
-                              QFrame, QHBoxLayout, QGridLayout, QLabel, QStackedWidget)
+                              QFrame, QHBoxLayout, QGridLayout, QLabel, QStackedWidget,
+                              QGraphicsOpacityEffect)
 from PyQt6.QtCore import (Qt, QRectF, QPropertyAnimation, QEasingCurve,
                            QParallelAnimationGroup, pyqtProperty, pyqtSignal)
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
@@ -425,6 +426,7 @@ class MainWindow(QWidget):
     SEARCH_ANIM_MS = 500
     SEARCH_VERT_COOLDOWN_MS = 150
     SEARCH_BAR_ANIM_MS = 600
+    VIDEO_RETURN_TRANSITION_MS = 400
 
     def __init__(self):
         super().__init__()
@@ -464,7 +466,8 @@ class MainWindow(QWidget):
 
         # --- Video player ---
         self._video_player = VideoPlayer(self)
-        self._video_player.back_pressed.connect(self._on_video_back)
+        self._video_player.back_transition_started.connect(self._on_video_back_transition_started)
+        self._video_player.back_pressed.connect(self._on_video_back_transition_finished)
 
         # --- Browse page (search bar + grid/search content) ---
         self._browse_page = QWidget(self)
@@ -489,6 +492,17 @@ class MainWindow(QWidget):
         self._top_stack = QStackedWidget(self)
         self._top_stack.addWidget(self._browse_page)
         self._top_stack.addWidget(self._video_player)
+        self._browse_fx = QGraphicsOpacityEffect(self._browse_page)
+        self._browse_fx.setOpacity(1.0)
+        self._browse_page.setGraphicsEffect(self._browse_fx)
+
+        self._transition_overlay = QWidget(self)
+        self._transition_overlay.setStyleSheet("background-color: #000000;")
+        self._transition_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._transition_overlay.hide()
+        self._transition_fx = QGraphicsOpacityEffect(self._transition_overlay)
+        self._transition_fx.setOpacity(0.0)
+        self._transition_overlay.setGraphicsEffect(self._transition_fx)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -506,6 +520,13 @@ class MainWindow(QWidget):
         self._scroll_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         self._sb_anim = QParallelAnimationGroup(self)
+        self._video_return_slide = QPropertyAnimation(self._browse_page, b"pos", self)
+        self._video_return_fade = QPropertyAnimation(self._browse_fx, b"opacity", self)
+        self._transition_fade = QPropertyAnimation(self._transition_fx, b"opacity", self)
+        self._video_return_group = QParallelAnimationGroup(self)
+        self._video_return_group.addAnimation(self._video_return_slide)
+        self._video_return_group.addAnimation(self._video_return_fade)
+        self._video_return_group.addAnimation(self._transition_fade)
         self._set_sb_width(self._collapsed_w())
         self._search_bar.set_selected(False)
 
@@ -592,9 +613,7 @@ class MainWindow(QWidget):
         self._top_stack.setCurrentWidget(self._video_player)
         self._video_player.setFocus()
 
-    def _on_video_back(self):
-        self._top_stack.setCurrentWidget(self._browse_page)
-        self.setFocus()
+    def _prepare_browse_return_state(self):
         if self._return_to == "search":
             self._enter_search()
             self._search_bar.set_text(self._search_query)
@@ -602,9 +621,46 @@ class MainWindow(QWidget):
         else:
             self._focus_grid()
 
+    def _on_video_back_transition_started(self):
+        self._top_stack.setCurrentWidget(self._browse_page)
+        self._prepare_browse_return_state()
+        self._video_return_group.stop()
+        w = self._top_stack.width()
+        self._browse_page.move(-w, 0)
+        self._browse_fx.setOpacity(0.0)
+        self._transition_overlay.setGeometry(self.rect())
+        self._transition_overlay.show()
+        self._transition_overlay.raise_()
+
+        self._video_return_slide.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._video_return_slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._video_return_slide.setStartValue(self._browse_page.pos())
+        self._video_return_slide.setEndValue(self._top_stack.rect().topLeft())
+
+        self._video_return_fade.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._video_return_fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._video_return_fade.setStartValue(0.0)
+        self._video_return_fade.setEndValue(1.0)
+
+        self._transition_fade.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._transition_fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._transition_fade.setStartValue(1.0)
+        self._transition_fade.setEndValue(0.0)
+
+        self._video_return_group.start()
+
+    def _on_video_back_transition_finished(self):
+        self._top_stack.setCurrentWidget(self._browse_page)
+        self._browse_page.move(0, 0)
+        self._browse_fx.setOpacity(1.0)
+        self._transition_overlay.hide()
+        self._transition_fx.setOpacity(0.0)
+        self.setFocus()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._set_sb_width(self._expanded_w() if self._mode == "search" else self._collapsed_w())
+        self._transition_overlay.setGeometry(self.rect())
 
     def keyPressEvent(self, event):
         key = event.key()
