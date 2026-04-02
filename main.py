@@ -3,7 +3,7 @@ import time
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
                               QFrame, QHBoxLayout, QGridLayout, QLabel, QStackedWidget,
                               QGraphicsOpacityEffect)
-from PyQt6.QtCore import (Qt, QRectF, QPropertyAnimation, QEasingCurve,
+from PyQt6.QtCore import (Qt, QRectF, QPoint, QTimer, QPropertyAnimation, QEasingCurve,
                            QParallelAnimationGroup, pyqtProperty, pyqtSignal)
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
 from video_player import VideoPlayer
@@ -39,6 +39,8 @@ def make_anim(target, prop, start, end, duration, parent=None):
 
 
 class RectCard(QWidget):
+    clicked = pyqtSignal()
+
     def __init__(self, index, label, base_width, base_height, parent=None):
         super().__init__(parent)
         self._index, self._label = index, label
@@ -56,6 +58,10 @@ class RectCard(QWidget):
     glow_opacity = pyqtProperty(float, _get_glow, _set_glow)
 
     def set_label(self, label): self._label = label; self.update()
+
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -88,6 +94,7 @@ class RectCard(QWidget):
 
 class GridWidget(QWidget):
     CARD_ANIM_MS = 500
+    card_activated = pyqtSignal(str)
 
     def __init__(self, cols, labels, card_w, card_h, spacing, margin, parent=None):
         super().__init__(parent)
@@ -110,6 +117,7 @@ class GridWidget(QWidget):
             card = RectCard(i, label, card_w, card_h, self)
             card.move(margin + (i % cols) * (cell_w + spacing),
                       margin + (i // cols) * self._row_step)
+            card.clicked.connect(lambda checked=False, lbl=label: self.card_activated.emit(lbl))
             self._cards.append(card)
 
         self._select(0, animate=False)
@@ -257,6 +265,7 @@ class KeyboardKey(QFrame):
 
 
 class SearchPanel(QWidget):
+    result_activated = pyqtSignal(str)
     ROWS = [
         ["A", "B", "C", "D", "E", "F"],
         ["G", "H", "I", "J", "K", "L"],
@@ -305,6 +314,7 @@ class SearchPanel(QWidget):
             res_grid.setColumnStretch(c, 1)
         for i in range(6):
             tile = RectCard(i, "", card_w, card_h, right)
+            tile.clicked.connect(lambda checked=False, idx=i: self._activate_result(idx))
             tile.hide()
             self._res_tiles.append(tile)
             res_grid.addWidget(tile, i // 3, i % 3)
@@ -314,6 +324,10 @@ class SearchPanel(QWidget):
         root.addWidget(left, 1)
         root.addWidget(right, 1)
         self._refresh_selection()
+
+    def _activate_result(self, index):
+        if 0 <= index < len(self._results):
+            self.result_activated.emit(self._results[index])
 
     def reset_navigation(self):
         self._focus_zone = "keyboard"
@@ -436,6 +450,7 @@ class MainWindow(QWidget):
         self._last_vert_ms = self._last_search_vert_ms = 0
         self._mode, self._focus_area, self._search_query = "grid", "grid", ""
         self._return_to = "grid"  # tracks where to return after video
+        self._is_video_transitioning = False
 
         screen = QApplication.primaryScreen().availableGeometry()
         sw, sh = screen.width(), screen.height()
@@ -527,8 +542,18 @@ class MainWindow(QWidget):
         self._video_return_group.addAnimation(self._video_return_slide)
         self._video_return_group.addAnimation(self._video_return_fade)
         self._video_return_group.addAnimation(self._transition_fade)
+        self._video_enter_slide = QPropertyAnimation(self._browse_page, b"pos", self)
+        self._video_enter_fade = QPropertyAnimation(self._browse_fx, b"opacity", self)
+        self._video_enter_overlay_fade = QPropertyAnimation(self._transition_fx, b"opacity", self)
+        self._video_enter_group = QParallelAnimationGroup(self)
+        self._video_enter_group.addAnimation(self._video_enter_slide)
+        self._video_enter_group.addAnimation(self._video_enter_fade)
+        self._video_enter_group.addAnimation(self._video_enter_overlay_fade)
         self._set_sb_width(self._collapsed_w())
         self._search_bar.set_selected(False)
+
+        self._grid.card_activated.connect(lambda label: self._play_video("grid"))
+        self._search_panel.result_activated.connect(lambda label: self._play_video("search"))
 
     def _collapsed_w(self): return max(300, min(460, self.width() - 50))
     def _expanded_w(self):  return max(320, self.width() - 16)
@@ -609,8 +634,47 @@ class MainWindow(QWidget):
 
     def _play_video(self, from_where):
         self._return_to = from_where
+        self._is_video_transitioning = True
         self._video_player.load_video("demo.mp4")
+        self._start_video_enter_transition()
+
+    def _start_video_enter_transition(self):
+        self._video_enter_group.stop()
+        self._top_stack.setCurrentWidget(self._browse_page)
+        self._transition_overlay.setGeometry(self.rect())
+        self._transition_overlay.show()
+        self._transition_overlay.raise_()
+
+        w = self._top_stack.width()
+        self._browse_page.move(0, 0)
+        self._browse_fx.setOpacity(1.0)
+        self._transition_fx.setOpacity(0.0)
+
+        self._video_enter_slide.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._video_enter_slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._video_enter_slide.setStartValue(self._browse_page.pos())
+        self._video_enter_slide.setEndValue(QPoint(-w, 0))
+
+        self._video_enter_fade.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._video_enter_fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._video_enter_fade.setStartValue(1.0)
+        self._video_enter_fade.setEndValue(0.0)
+
+        self._video_enter_overlay_fade.setDuration(self.VIDEO_RETURN_TRANSITION_MS)
+        self._video_enter_overlay_fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._video_enter_overlay_fade.setStartValue(0.0)
+        self._video_enter_overlay_fade.setEndValue(1.0)
+
+        self._video_enter_group.start()
+        QTimer.singleShot(self.VIDEO_RETURN_TRANSITION_MS, self._finish_video_enter_transition)
+
+    def _finish_video_enter_transition(self):
         self._top_stack.setCurrentWidget(self._video_player)
+        self._browse_page.move(0, 0)
+        self._browse_fx.setOpacity(1.0)
+        self._transition_overlay.hide()
+        self._transition_fx.setOpacity(0.0)
+        self._is_video_transitioning = False
         self._video_player.setFocus()
 
     def _prepare_browse_return_state(self):
@@ -622,6 +686,7 @@ class MainWindow(QWidget):
             self._focus_grid()
 
     def _on_video_back_transition_started(self):
+        self._is_video_transitioning = True
         self._top_stack.setCurrentWidget(self._browse_page)
         self._prepare_browse_return_state()
         self._video_return_group.stop()
@@ -655,6 +720,7 @@ class MainWindow(QWidget):
         self._browse_fx.setOpacity(1.0)
         self._transition_overlay.hide()
         self._transition_fx.setOpacity(0.0)
+        self._is_video_transitioning = False
         self.setFocus()
 
     def resizeEvent(self, event):
@@ -663,6 +729,10 @@ class MainWindow(QWidget):
         self._transition_overlay.setGeometry(self.rect())
 
     def keyPressEvent(self, event):
+        if self._is_video_transitioning:
+            event.accept()
+            return
+
         key = event.key()
         d = KEY_MAP.get(key)
 
