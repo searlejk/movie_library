@@ -42,17 +42,16 @@ python main.py
 - [x] Remove all mouse input code from both files, video_player and main
 - [x] When the mp4 video opens up in video_player I want the button to be already disappeared by default
 - [x] Make tiny change so that video truly goes full screen when the buttons disappear
+- [x] Have a program make mp4 videos that are 15 seconds long of each animal name just being displayed on the screen, white text on black background
+- [x] Create a way to store hundreds of mp4 files in an organized way
+- [x] Store each of those videos in their correct place
+- [ ] Add the title of the video under the video rectangle so its visible
+- [ ] Add that if a rect is hovered it displays the duration and last watched time, in this format: 1h 40m • Last watched 2 days ago
 
-- [ ] Have a program make mp4 videos that are 15 seconds long of each animal name just being displayed on the screen, white text on black background
-- [ ] Create a way to store hundreds of mp4 files in an organized way
-- [ ] Store each of those videos in their correct place
 - [ ] Store the data of the timestamp I stopped the video at
 - [ ] Store when each video was watched last
 - [ ] Allow for sorting the movies based on when they were watched last
 - [ ]
 - [ ]
-- [ ]
-- [ ]
-- [ ]
-- [ ]
+- [ ] Interesting problem where rect starting size is not the same for all of the rects, then after scrolling some random ones will change sizes
 - [ ]
