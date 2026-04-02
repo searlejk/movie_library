@@ -86,6 +86,7 @@ class VideoPlayer(QWidget):
         self.player.durationChanged.connect(self.slider.setMaximum)
         self.slider.sliderMoved.connect(self.player.setPosition)
         self.player.playbackStateChanged.connect(self._update_play_text)
+        self.player.mediaStatusChanged.connect(self._handle_media_status)
 
         # --- Widgets to hide/show ---
         self._hideable = [self.btn_back, self.btn_rw, self.btn_play,
@@ -149,6 +150,10 @@ class VideoPlayer(QWidget):
             self.btn_play.setText("▶ Play")
             self._show_controls()
             self._inactivity_timer.stop()
+
+    def _handle_media_status(self, status):
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            self._on_back()
 
     def _on_back(self):
         self.stop_video()
