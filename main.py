@@ -50,6 +50,7 @@ class RectCard(QWidget):
         super().__init__(parent)
         self._index, self._label = index, label
         self._subtitle = ""
+        self._resume_progress = None
         self._base_width, self._base_height = base_width, base_height
         self._scale, self._selected, self._glow_opacity = 1.0, False, 0.0
         self._base_cell_w = int(base_width * 1.35)
@@ -68,6 +69,13 @@ class RectCard(QWidget):
     def set_label(self, label): self._label = label; self.update()
 
     def set_subtitle(self, subtitle): self._subtitle = subtitle; self.update()
+
+    def set_resume_progress(self, progress):
+        if progress is None:
+            self._resume_progress = None
+        else:
+            self._resume_progress = max(0.0, min(1.0, float(progress)))
+        self.update()
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -94,6 +102,36 @@ class RectCard(QWidget):
         p.setBrush(grad)
         p.drawRoundedRect(rect, 8, 8)
 
+        if self._resume_progress is not None:
+            # Red badge indicates that a resume timestamp exists.
+            badge_r = 5
+            badge_x = rect.right() - 12
+            badge_y = rect.top() + 12
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(240, 68, 68))
+            p.drawEllipse(QPoint(int(badge_x), int(badge_y)), badge_r, badge_r)
+
+            # Progress bar at the bottom of the card with dot at saved timestamp.
+            bar_margin = 16
+            bar_h = 4
+            bar_w = max(24.0, rect.width() - bar_margin * 2)
+            bar_x = rect.left() + bar_margin
+            bar_y = rect.bottom() - 10
+            bar_rect = QRectF(bar_x, bar_y, bar_w, bar_h)
+
+            p.setBrush(QColor(95, 103, 126, 180))
+            p.drawRoundedRect(bar_rect, 2, 2)
+
+            fill_w = bar_w * self._resume_progress
+            fill_rect = QRectF(bar_x, bar_y, fill_w, bar_h)
+            p.setBrush(QColor(240, 68, 68, 220))
+            p.drawRoundedRect(fill_rect, 2, 2)
+
+            dot_x = bar_x + fill_w
+            dot_y = bar_y + bar_h / 2.0
+            p.setBrush(QColor(252, 128, 128))
+            p.drawEllipse(QPoint(int(dot_x), int(dot_y)), 4, 4)
+
         # Title (fixed size, doesn't scale)
         title_font = QFont("Helvetica Neue", 14, QFont.Weight.Medium)
         p.setFont(title_font)
@@ -118,11 +156,13 @@ class RectCard(QWidget):
 class GridWidget(QWidget):
     CARD_ANIM_MS = 500
 
-    def __init__(self, cols, labels, card_w, card_h, spacing, margin, subtitle_provider=None, parent=None):
+    def __init__(self, cols, labels, card_w, card_h, spacing, margin,
+                 subtitle_provider=None, resume_provider=None, parent=None):
         super().__init__(parent)
         self._cols, self._total = cols, len(labels)
         self._card_w, self._card_h = card_w, card_h
         self._subtitle_provider = subtitle_provider or (lambda _: "")
+        self._resume_provider = resume_provider or (lambda _: None)
         self._margin, self._current = margin, 0
         self._selection_visible = True
         self._rows = (self._total + cols - 1) // cols
@@ -140,6 +180,7 @@ class GridWidget(QWidget):
         for i, label in enumerate(labels):
             card = RectCard(i, label, card_w, card_h, self)
             card.set_subtitle(self._subtitle_provider(label))
+            card.set_resume_progress(self._resume_provider(label))
             card.move(margin + (i % cols) * (cell_w + spacing),
                       margin + (i // cols) * self._row_step)
             self._cards.append(card)
@@ -152,6 +193,7 @@ class GridWidget(QWidget):
     def refresh_subtitles(self):
         for card in self._cards:
             card.set_subtitle(self._subtitle_provider(card._label))
+            card.set_resume_progress(self._resume_provider(card._label))
 
     def _select(self, index, animate=True):
         if not (0 <= index < self._total):
@@ -293,11 +335,13 @@ class SearchPanel(QWidget):
         ["Y", "Z", "SPACE", "DEL", "CLEAR", "EXIT"],
     ]
 
-    def __init__(self, card_w, card_h, anim_ms=500, subtitle_provider=None, parent=None):
+    def __init__(self, card_w, card_h, anim_ms=500,
+                 subtitle_provider=None, resume_provider=None, parent=None):
         super().__init__(parent)
         self._kb_tiles, self._res_tiles = [], []
         self._results = []
         self._subtitle_provider = subtitle_provider or (lambda _: "")
+        self._resume_provider = resume_provider or (lambda _: None)
         self._focus_zone = "keyboard"
         self._key_row = self._key_col = self._res_idx = 0
         self._active_res_idx = None
@@ -360,6 +404,7 @@ class SearchPanel(QWidget):
                 label = self._results[i]
                 tile.set_label(label)
                 tile.set_subtitle(self._subtitle_provider(label))
+                tile.set_resume_progress(self._resume_provider(label))
                 tile.show()
                 # FIX: Reset all tiles to default state initially
                 if i != self._active_res_idx:
@@ -377,7 +422,9 @@ class SearchPanel(QWidget):
     def refresh_subtitles(self):
         for i, tile in enumerate(self._res_tiles):
             if i < len(self._results):
-                tile.set_subtitle(self._subtitle_provider(self._results[i]))
+                label = self._results[i]
+                tile.set_subtitle(self._subtitle_provider(label))
+                tile.set_resume_progress(self._resume_provider(label))
 
     def move(self, direction):
         if self._focus_zone == "keyboard":
@@ -517,7 +564,8 @@ class MainWindow(QWidget):
         card_h = int(card_w * 3 / 2)
 
         self._grid = GridWidget(cols, ANIMAL_NAMES, card_w, card_h, spacing, margin,
-                                subtitle_provider=self._subtitle_for_animal)
+                                subtitle_provider=self._subtitle_for_animal,
+                                resume_provider=self._resume_progress_for_animal)
 
         self._scroll = QScrollArea(self)
         self._scroll.setWidgetResizable(False)
@@ -535,7 +583,9 @@ class MainWindow(QWidget):
 
         self._search_bar = SearchBarWidget(self)
         self._search_panel = SearchPanel(card_w, card_h, self.SEARCH_ANIM_MS,
-                                         subtitle_provider=self._subtitle_for_animal, parent=self)
+                                         subtitle_provider=self._subtitle_for_animal,
+                                         resume_provider=self._resume_progress_for_animal,
+                                         parent=self)
 
         self._video_player = VideoPlayer(self)
         self._video_player.back_transition_started.connect(self._on_video_back_transition_started)
@@ -705,8 +755,7 @@ class MainWindow(QWidget):
             self._last_watched_by_animal[animal_name] = datetime.now()
 
         self._save_watch_state()
-        self._grid.refresh_subtitles()
-        self._search_panel.refresh_subtitles()
+        self._refresh_card_metadata()
 
         self._video_player.load_video(str(video_path), start_position_ms=start_ms)
         self._start_video_enter_transition()
@@ -803,8 +852,7 @@ class MainWindow(QWidget):
         self._is_video_transitioning = False
 
         if self._current_video_animal:
-            self._grid.refresh_subtitles()
-            self._search_panel.refresh_subtitles()
+            self._refresh_card_metadata()
             self._current_video_animal = None
             self._current_video_session_qualified = False
 
@@ -902,8 +950,7 @@ class MainWindow(QWidget):
     def _on_video_duration_changed(self, duration_ms):
         if self._current_video_animal and duration_ms > 0:
             self._duration_seconds_by_animal[self._current_video_animal] = int(duration_ms / 1000)
-            self._grid.refresh_subtitles()
-            self._search_panel.refresh_subtitles()
+            self._refresh_card_metadata()
 
     def _on_video_position_changed(self, position_ms):
         if not self._current_video_animal:
@@ -928,8 +975,22 @@ class MainWindow(QWidget):
             self._watch_qualified_by_animal[self._current_video_animal] = True
             self._last_watched_by_animal[self._current_video_animal] = datetime.now()
             self._save_watch_state()
-            self._grid.refresh_subtitles()
-            self._search_panel.refresh_subtitles()
+            self._refresh_card_metadata()
+
+    def _resume_progress_for_animal(self, animal_name):
+        position_ms = self._resume_positions_ms.get(animal_name)
+        if position_ms is None:
+            return None
+
+        duration_ms = max(1, int(self._duration_seconds_by_animal.get(animal_name, 15) * 1000))
+        progress = position_ms / duration_ms
+        if progress >= self.RESUME_CLEAR_RATIO:
+            return None
+        return max(0.0, min(progress, 1.0))
+
+    def _refresh_card_metadata(self):
+        self._grid.refresh_subtitles()
+        self._search_panel.refresh_subtitles()
 
     def _format_duration(self, total_seconds):
         total_seconds = max(0, int(total_seconds))

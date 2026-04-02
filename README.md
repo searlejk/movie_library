@@ -48,10 +48,10 @@ python main.py
 - [x] Add the title of the video under the video rectangle so its visible
 - [x] Add that if a rect is hovered it displays the duration and last watched time, in this format: 1h 40m • Last watched 2 days ago
 - [x] Interesting problem where rect starting size is not the same for all of the rects, then after scrolling some random ones will change sizes
+- [x] Store when each video was watched last
+- [x] Store the data of the timestamp I stopped the video at (only for the most recent 3 movies)
+- [x] Add a visual indicator that the timestamp is saved for a movie, this should be visible on search and home menu
 
-- [ ] Store when each video was watched last
-- [ ] Store the data of the timestamp I stopped the video at (only for the most recent 3 movies)
-
+- [ ] When a movie has a timestamp the duration should update to be the remaining duration of the movie, say: 30min left
 - [ ] Allow for sorting the movies based on when they were watched last
-- [ ]
 - [ ]
