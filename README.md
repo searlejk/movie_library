@@ -28,6 +28,26 @@ python main.py
 - [x] Resize the main grid's selected rectangle to its original state when the search bar is active.
 - [x] Add a card-like visual design to the keyboard keys.
 - [x] Streamline the codebase for improved readability and maintainability.
+- [x] Open mp4 video after selecting the right movie
+- [x] Fix arrows so they work on video player
+- [x] Fix back button so it works on video player
 
-- [ ] Open mp4 video in video player on mac after selecting the right movie
-- [ ] Then I can use that insetad of adding a video playing software into the app
+- [ ] Have the pause/ffw/rw/back buttons not adjust the video dispaly, but be overlayed
+- [ ] have those same buttons fade disapear after 3 seconds of no input from the user
+- [ ] A press from any of the arrow keys should make them appear and I should be on the pause button
+- [ ] If I press enter it should pause the video.
+
+- [ ] Have the video player return to previous screen once the mp4 video is done playing
+- [ ] Create a way to store hundreds of mp4 files in an organized way
+- [ ] Have a program make mp4 videos that are 30 seconds long of each animal name just being displayed on the screen, white text on black background
+- [ ] Store each of those videos in their correct place
+- [ ] Store the data of the timestamp I stopped the video at
+- [ ] Store when each video was watched last
+- [ ] Allow for sorting the movies based on when they were watched last
+- [ ]
+- [ ]
+- [ ]
+- [ ]
+- [ ]
+- [ ]
+- [ ]

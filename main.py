@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
 from PyQt6.QtCore import (Qt, QRectF, QPropertyAnimation, QEasingCurve,
                            QParallelAnimationGroup, pyqtProperty, pyqtSignal)
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
+from video_player import VideoPlayer
 
 ANIMAL_NAMES = [
     "Aardvark", "Albatross", "Alligator", "Alpaca", "Anaconda", "Antelope",
@@ -111,6 +112,11 @@ class GridWidget(QWidget):
             self._cards.append(card)
 
         self._select(0, animate=False)
+
+    def current_label(self):
+        if 0 <= self._current < len(self._cards):
+            return self._cards[self._current]._label
+        return ""
 
     def _select(self, index, animate=True):
         if not (0 <= index < self._total):
@@ -427,6 +433,7 @@ class MainWindow(QWidget):
 
         self._last_vert_ms = self._last_search_vert_ms = 0
         self._mode, self._focus_area, self._search_query = "grid", "grid", ""
+        self._return_to = "grid"  # tracks where to return after video
 
         screen = QApplication.primaryScreen().availableGeometry()
         sw, sh = screen.width(), screen.height()
@@ -455,21 +462,38 @@ class MainWindow(QWidget):
         self._search_bar.clicked.connect(self._on_search_click)
         self._search_panel = SearchPanel(card_w, card_h, self.SEARCH_ANIM_MS, self)
 
-        self._content = QStackedWidget(self)
-        self._content.addWidget(self._scroll)
-        self._content.addWidget(self._search_panel)
+        # --- Video player ---
+        self._video_player = VideoPlayer(self)
+        self._video_player.back_pressed.connect(self._on_video_back)
 
-        search_row = QWidget(self)
+        # --- Browse page (search bar + grid/search content) ---
+        self._browse_page = QWidget(self)
+        browse_lay = QVBoxLayout(self._browse_page)
+        browse_lay.setContentsMargins(0, 0, 0, 0)
+        browse_lay.setSpacing(0)
+
+        search_row = QWidget(self._browse_page)
         sr_lay = QHBoxLayout(search_row)
         sr_lay.setContentsMargins(8, 10, 8, 8)
         sr_lay.setSpacing(0)
         sr_lay.addWidget(self._search_bar, 0, Qt.AlignmentFlag.AlignHCenter)
 
+        self._content = QStackedWidget(self._browse_page)
+        self._content.addWidget(self._scroll)
+        self._content.addWidget(self._search_panel)
+
+        browse_lay.addWidget(search_row)
+        browse_lay.addWidget(self._content)
+
+        # --- Top-level stack: browse vs video ---
+        self._top_stack = QStackedWidget(self)
+        self._top_stack.addWidget(self._browse_page)
+        self._top_stack.addWidget(self._video_player)
+
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
-        lay.addWidget(search_row)
-        lay.addWidget(self._content)
+        lay.addWidget(self._top_stack)
 
         win_w = min(self._grid.width() + 20, sw)
         win_h = min(sh - 80, self._grid.height() + 86)
@@ -562,6 +586,22 @@ class MainWindow(QWidget):
         self._scroll_anim.setEndValue(target)
         self._scroll_anim.start()
 
+    def _play_video(self, from_where):
+        self._return_to = from_where
+        self._video_player.load_video("demo.mp4")
+        self._top_stack.setCurrentWidget(self._video_player)
+        self._video_player.setFocus()
+
+    def _on_video_back(self):
+        self._top_stack.setCurrentWidget(self._browse_page)
+        self.setFocus()
+        if self._return_to == "search":
+            self._enter_search()
+            self._search_bar.set_text(self._search_query)
+            self._refresh_results()
+        else:
+            self._focus_grid()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._set_sb_width(self._expanded_w() if self._mode == "search" else self._collapsed_w())
@@ -569,6 +609,11 @@ class MainWindow(QWidget):
     def keyPressEvent(self, event):
         key = event.key()
         d = KEY_MAP.get(key)
+
+        # If video is playing, let it handle keys
+        if self._top_stack.currentWidget() == self._video_player:
+            self._video_player.keyPressEvent(event)
+            return
 
         if self._mode == "search":
             if key == Qt.Key.Key_Escape:
@@ -578,9 +623,7 @@ class MainWindow(QWidget):
                 if action == "key":
                     self._apply_token(val)
                 elif action == "result" and val:
-                    self._search_query = val
-                    self._search_bar.set_text(val)
-                    self._refresh_results()
+                    self._play_video("search")
                 return
             if d:
                 if d in ("up", "down") and self._search_panel.focus_zone() == "results":
@@ -598,6 +641,10 @@ class MainWindow(QWidget):
 
         if key == Qt.Key.Key_Escape:
             self.close(); return
+
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._play_video("grid")
+            return
 
         if d:
             if d == "up" and self._grid._current < self._grid._cols:
