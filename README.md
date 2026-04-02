@@ -33,9 +33,9 @@ python main.py
 - [x] Fix back button so it works on video player
 - [x] Have the pause/ffw/rw/back buttons not adjust the video display, but be overlayed
 - [x] have those same buttons fade disapear after 3 seconds of no input from the user
-
-- [ ] A press from any of the arrow keys should make them appear and I should be on the pause button
-- [ ] If I press enter it should pause the video.
+- [x] A press from any of the arrow keys should make them appear and I should be on the pause button
+- [x] Make it so the buttons don't disappear as long as it is paused
+- [x] If I press enter it should pause the video.
 
 - [ ] Have the video player return to previous screen once the mp4 video is done playing
 - [ ] Create a way to store hundreds of mp4 files in an organized way

@@ -103,6 +103,8 @@ class VideoPlayer(QWidget):
     # ---- auto-hide / auto-show ----
 
     def _hide_controls(self):
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PausedState:
+            return
         for w in self._hideable:
             w.setVisible(False)
 
@@ -112,7 +114,10 @@ class VideoPlayer(QWidget):
 
     def _reset_inactivity(self):
         self._show_controls()
-        self._inactivity_timer.start()
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PausedState:
+            self._inactivity_timer.stop()
+        else:
+            self._inactivity_timer.start()
 
     # ---- original methods (unchanged) ----
 
@@ -139,8 +144,11 @@ class VideoPlayer(QWidget):
     def _update_play_text(self):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.btn_play.setText("⏸ Pause")
+            self._inactivity_timer.start()
         else:
             self.btn_play.setText("▶ Play")
+            self._show_controls()
+            self._inactivity_timer.stop()
 
     def _on_back(self):
         self.stop_video()
@@ -158,8 +166,18 @@ class VideoPlayer(QWidget):
         btn.click()
 
     def keyPressEvent(self, event):
-        self._reset_inactivity()
         key = event.key()
+
+        # If controls are hidden, first arrow-key press only reveals controls
+        # and resets focus to play/pause without moving selection.
+        controls_hidden = not self.btn_play.isVisible()
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down) and controls_hidden:
+            self._btn_index = 2
+            self._refresh_btn_styles()
+            self._reset_inactivity()
+            return
+
+        self._reset_inactivity()
         if key == Qt.Key.Key_Escape:
             self._on_back()
         elif key == Qt.Key.Key_Left:
