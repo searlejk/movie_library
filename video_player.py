@@ -23,6 +23,7 @@ class VideoPlayer(QWidget):
         self.video_widget = QVideoWidget()
         self.player.setVideoOutput(self.video_widget)
         self._is_exiting = False
+        self._hide_controls_on_load = False
 
         btn_style_normal = (
             "QPushButton { color: #cdd3e5; background: #2e3448; border: 2px solid #4a5168;"
@@ -117,6 +118,7 @@ class VideoPlayer(QWidget):
             w.setVisible(True)
 
     def _reset_inactivity(self):
+        self._hide_controls_on_load = False
         self._show_controls()
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PausedState:
             self._inactivity_timer.stop()
@@ -126,11 +128,13 @@ class VideoPlayer(QWidget):
     # ---- original methods (unchanged) ----
 
     def load_video(self, path):
+        self._hide_controls_on_load = True
         self.player.setSource(QUrl.fromLocalFile(path))
         self.player.play()
         self._btn_index = 2
         self._refresh_btn_styles()
-        self._reset_inactivity()
+        self._hide_controls()
+        self._inactivity_timer.stop()
 
     def stop_video(self):
         self.player.stop()
@@ -146,13 +150,23 @@ class VideoPlayer(QWidget):
         self.player.setPosition(max(0, self.player.position() + ms))
 
     def _update_play_text(self):
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        state = self.player.playbackState()
+        if state == QMediaPlayer.PlaybackState.PlayingState:
             self.btn_play.setText("⏸ Pause")
-            self._inactivity_timer.start()
-        else:
+            if self._hide_controls_on_load:
+                self._inactivity_timer.stop()
+            else:
+                self._inactivity_timer.start()
+        elif state == QMediaPlayer.PlaybackState.PausedState:
             self.btn_play.setText("▶ Play")
             self._show_controls()
+            self._hide_controls_on_load = False
             self._inactivity_timer.stop()
+        else:
+            self.btn_play.setText("▶ Play")
+            self._inactivity_timer.stop()
+            if not self._hide_controls_on_load:
+                self._show_controls()
 
     def _handle_media_status(self, status):
         if status == QMediaPlayer.MediaStatus.EndOfMedia:

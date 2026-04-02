@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
                               QFrame, QHBoxLayout, QGridLayout, QLabel, QStackedWidget,
                               QGraphicsOpacityEffect)
 from PyQt6.QtCore import (Qt, QRectF, QPoint, QTimer, QPropertyAnimation, QEasingCurve,
-                           QParallelAnimationGroup, pyqtProperty, pyqtSignal)
+                           QParallelAnimationGroup, pyqtProperty)
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
 from video_player import VideoPlayer
 
@@ -39,8 +39,6 @@ def make_anim(target, prop, start, end, duration, parent=None):
 
 
 class RectCard(QWidget):
-    clicked = pyqtSignal()
-
     def __init__(self, index, label, base_width, base_height, parent=None):
         super().__init__(parent)
         self._index, self._label = index, label
@@ -58,10 +56,6 @@ class RectCard(QWidget):
     glow_opacity = pyqtProperty(float, _get_glow, _set_glow)
 
     def set_label(self, label): self._label = label; self.update()
-
-    def mousePressEvent(self, event):
-        self.clicked.emit()
-        super().mousePressEvent(event)
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -94,7 +88,6 @@ class RectCard(QWidget):
 
 class GridWidget(QWidget):
     CARD_ANIM_MS = 500
-    card_activated = pyqtSignal(str)
 
     def __init__(self, cols, labels, card_w, card_h, spacing, margin, parent=None):
         super().__init__(parent)
@@ -117,7 +110,6 @@ class GridWidget(QWidget):
             card = RectCard(i, label, card_w, card_h, self)
             card.move(margin + (i % cols) * (cell_w + spacing),
                       margin + (i // cols) * self._row_step)
-            card.clicked.connect(lambda checked=False, lbl=label: self.card_activated.emit(lbl))
             self._cards.append(card)
 
         self._select(0, animate=False)
@@ -186,21 +178,14 @@ class GridWidget(QWidget):
 
 
 class SearchBarWidget(QWidget):
-    clicked = pyqtSignal()
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._text, self._selected, self._expanded = "", False, False
         self.setFixedHeight(52)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def set_text(self, t):     self._text = t; self.update()
     def set_selected(self, s): self._selected = s; self.update()
     def set_expanded(self, e): self._expanded = e; self.update()
-
-    def mousePressEvent(self, event):
-        self.clicked.emit()
-        super().mousePressEvent(event)
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -265,7 +250,6 @@ class KeyboardKey(QFrame):
 
 
 class SearchPanel(QWidget):
-    result_activated = pyqtSignal(str)
     ROWS = [
         ["A", "B", "C", "D", "E", "F"],
         ["G", "H", "I", "J", "K", "L"],
@@ -314,7 +298,6 @@ class SearchPanel(QWidget):
             res_grid.setColumnStretch(c, 1)
         for i in range(6):
             tile = RectCard(i, "", card_w, card_h, right)
-            tile.clicked.connect(lambda checked=False, idx=i: self._activate_result(idx))
             tile.hide()
             self._res_tiles.append(tile)
             res_grid.addWidget(tile, i // 3, i % 3)
@@ -324,10 +307,6 @@ class SearchPanel(QWidget):
         root.addWidget(left, 1)
         root.addWidget(right, 1)
         self._refresh_selection()
-
-    def _activate_result(self, index):
-        if 0 <= index < len(self._results):
-            self.result_activated.emit(self._results[index])
 
     def reset_navigation(self):
         self._focus_zone = "keyboard"
@@ -476,7 +455,6 @@ class MainWindow(QWidget):
         """)
 
         self._search_bar = SearchBarWidget(self)
-        self._search_bar.clicked.connect(self._on_search_click)
         self._search_panel = SearchPanel(card_w, card_h, self.SEARCH_ANIM_MS, self)
 
         # --- Video player ---
@@ -513,7 +491,6 @@ class MainWindow(QWidget):
 
         self._transition_overlay = QWidget(self)
         self._transition_overlay.setStyleSheet("background-color: #000000;")
-        self._transition_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._transition_overlay.hide()
         self._transition_fx = QGraphicsOpacityEffect(self._transition_overlay)
         self._transition_fx.setOpacity(0.0)
@@ -552,9 +529,6 @@ class MainWindow(QWidget):
         self._set_sb_width(self._collapsed_w())
         self._search_bar.set_selected(False)
 
-        self._grid.card_activated.connect(lambda label: self._play_video("grid"))
-        self._search_panel.result_activated.connect(lambda label: self._play_video("search"))
-
     def _collapsed_w(self): return max(300, min(460, self.width() - 50))
     def _expanded_w(self):  return max(320, self.width() - 16)
 
@@ -582,10 +556,6 @@ class MainWindow(QWidget):
         self._focus_area = "grid"
         self._grid.set_selection_visible(True)
         self._search_bar.set_selected(False)
-
-    def _on_search_click(self):
-        if self._mode != "search":
-            self._enter_search()
 
     def _enter_search(self):
         self._mode = "search"
