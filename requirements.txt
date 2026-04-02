@@ -1,1 +1,5 @@
 PyQt6
+imageio
+imageio-ffmpeg
+numpy
+Pillow

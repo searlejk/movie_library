@@ -1,5 +1,6 @@
 import sys
 import time
+from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
                               QFrame, QHBoxLayout, QGridLayout, QLabel, QStackedWidget,
                               QGraphicsOpacityEffect)
@@ -27,6 +28,7 @@ KEY_MAP = {
 }
 
 TOKEN_LABELS = {"SPACE": "Space", "DEL": "Delete", "CLEAR": "Clear", "EXIT": "Exit"}
+MOVS_DIR = Path(__file__).resolve().parent / "movs"
 
 
 def make_anim(target, prop, start, end, duration, parent=None):
@@ -602,10 +604,16 @@ class MainWindow(QWidget):
         self._scroll_anim.setEndValue(target)
         self._scroll_anim.start()
 
-    def _play_video(self, from_where):
+    def _play_video(self, from_where, animal_name):
         self._return_to = from_where
         self._is_video_transitioning = True
-        self._video_player.load_video("demo.mp4")
+        video_path = MOVS_DIR / f"{animal_name}.mp4"
+        if not video_path.exists():
+            self._is_video_transitioning = False
+            print(f"Missing video for '{animal_name}': {video_path}")
+            return
+
+        self._video_player.load_video(str(video_path))
         self._start_video_enter_transition()
 
     def _start_video_enter_transition(self):
@@ -719,7 +727,7 @@ class MainWindow(QWidget):
                 if action == "key":
                     self._apply_token(val)
                 elif action == "result" and val:
-                    self._play_video("search")
+                    self._play_video("search", val)
                 return
             if d:
                 if d in ("up", "down") and self._search_panel.focus_zone() == "results":
@@ -739,7 +747,7 @@ class MainWindow(QWidget):
             self.close(); return
 
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            self._play_video("grid")
+            self._play_video("grid", self._grid.current_label())
             return
 
         if d:

@@ -43,8 +43,8 @@ python main.py
 - [x] When the mp4 video opens up in video_player I want the button to be already disappeared by default
 - [x] Make tiny change so that video truly goes full screen when the buttons disappear
 
+- [ ] Have a program make mp4 videos that are 15 seconds long of each animal name just being displayed on the screen, white text on black background
 - [ ] Create a way to store hundreds of mp4 files in an organized way
-- [ ] Have a program make mp4 videos that are 30 seconds long of each animal name just being displayed on the screen, white text on black background
 - [ ] Store each of those videos in their correct place
 - [ ] Store the data of the timestamp I stopped the video at
 - [ ] Store when each video was watched last
