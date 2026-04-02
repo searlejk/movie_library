@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                               QPushButton, QSlider)
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtCore import Qt, QUrl, pyqtSignal
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QTimer
 
 
 class VideoPlayer(QWidget):
@@ -59,6 +59,7 @@ class VideoPlayer(QWidget):
             "border-radius: 7px; }"
             "QSlider::sub-page:horizontal { background: #73c0ff; border-radius: 3px; }")
 
+        # --- Layout is identical to the original ---
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.btn_back)
         top_layout.addStretch()
@@ -86,13 +87,41 @@ class VideoPlayer(QWidget):
         self.slider.sliderMoved.connect(self.player.setPosition)
         self.player.playbackStateChanged.connect(self._update_play_text)
 
+        # --- Widgets to hide/show ---
+        self._hideable = [self.btn_back, self.btn_rw, self.btn_play,
+                          self.btn_ff, self.slider]
+
+        # --- Inactivity timer (3 seconds) ---
+        self._inactivity_timer = QTimer(self)
+        self._inactivity_timer.setSingleShot(True)
+        self._inactivity_timer.setInterval(3000)
+        self._inactivity_timer.timeout.connect(self._hide_controls)
+
         self._refresh_btn_styles()
+        self._inactivity_timer.start()
+
+    # ---- auto-hide / auto-show ----
+
+    def _hide_controls(self):
+        for w in self._hideable:
+            w.setVisible(False)
+
+    def _show_controls(self):
+        for w in self._hideable:
+            w.setVisible(True)
+
+    def _reset_inactivity(self):
+        self._show_controls()
+        self._inactivity_timer.start()
+
+    # ---- original methods (unchanged) ----
 
     def load_video(self, path):
         self.player.setSource(QUrl.fromLocalFile(path))
         self.player.play()
         self._btn_index = 2
         self._refresh_btn_styles()
+        self._reset_inactivity()
 
     def stop_video(self):
         self.player.stop()
@@ -129,6 +158,7 @@ class VideoPlayer(QWidget):
         btn.click()
 
     def keyPressEvent(self, event):
+        self._reset_inactivity()
         key = event.key()
         if key == Qt.Key.Key_Escape:
             self._on_back()

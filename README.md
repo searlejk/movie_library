@@ -31,9 +31,9 @@ python main.py
 - [x] Open mp4 video after selecting the right movie
 - [x] Fix arrows so they work on video player
 - [x] Fix back button so it works on video player
+- [x] Have the pause/ffw/rw/back buttons not adjust the video display, but be overlayed
+- [x] have those same buttons fade disapear after 3 seconds of no input from the user
 
-- [ ] Have the pause/ffw/rw/back buttons not adjust the video dispaly, but be overlayed
-- [ ] have those same buttons fade disapear after 3 seconds of no input from the user
 - [ ] A press from any of the arrow keys should make them appear and I should be on the pause button
 - [ ] If I press enter it should pause the video.
 
