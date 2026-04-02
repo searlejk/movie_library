@@ -1,0 +1,22 @@
+{
+  "last_watched_iso": {
+    "Aardvark": "2026-04-02T16:53:12.477447",
+    "Albatross": "2026-04-02T16:53:08.068348",
+    "Alligator": "2026-04-02T16:57:23.910717",
+    "Alpaca": "2026-04-02T16:57:16.530286"
+  },
+  "resume_order": [
+    "Albatross",
+    "Aardvark"
+  ],
+  "resume_positions_ms": {
+    "Aardvark": 2133,
+    "Albatross": 3566
+  },
+  "watch_qualified": {
+    "Aardvark": true,
+    "Albatross": true,
+    "Alligator": true,
+    "Alpaca": true
+  }
+}

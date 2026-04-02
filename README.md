@@ -45,13 +45,13 @@ python main.py
 - [x] Have a program make mp4 videos that are 15 seconds long of each animal name just being displayed on the screen, white text on black background
 - [x] Create a way to store hundreds of mp4 files in an organized way
 - [x] Store each of those videos in their correct place
-- [ ] Add the title of the video under the video rectangle so its visible
-- [ ] Add that if a rect is hovered it displays the duration and last watched time, in this format: 1h 40m • Last watched 2 days ago
+- [x] Add the title of the video under the video rectangle so its visible
+- [x] Add that if a rect is hovered it displays the duration and last watched time, in this format: 1h 40m • Last watched 2 days ago
+- [x] Interesting problem where rect starting size is not the same for all of the rects, then after scrolling some random ones will change sizes
 
-- [ ] Store the data of the timestamp I stopped the video at
 - [ ] Store when each video was watched last
+- [ ] Store the data of the timestamp I stopped the video at (only for the most recent 3 movies)
+
 - [ ] Allow for sorting the movies based on when they were watched last
 - [ ]
-- [ ]
-- [ ] Interesting problem where rect starting size is not the same for all of the rects, then after scrolling some random ones will change sizes
 - [ ]

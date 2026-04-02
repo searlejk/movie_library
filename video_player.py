@@ -22,6 +22,7 @@ class VideoPlayer(QWidget):
         self.player.setAudioOutput(self.audio)
         self.video_widget = QVideoWidget()
         self.player.setVideoOutput(self.video_widget)
+        self._pending_start_position_ms = 0
         self._is_exiting = False
         self._hide_controls_on_load = False
 
@@ -132,8 +133,9 @@ class VideoPlayer(QWidget):
 
     # ---- original methods (unchanged) ----
 
-    def load_video(self, path):
+    def load_video(self, path, start_position_ms=0):
         self._hide_controls_on_load = True
+        self._pending_start_position_ms = max(0, int(start_position_ms))
         self.player.setSource(QUrl.fromLocalFile(path))
         self.player.play()
         self._btn_index = 2
@@ -144,6 +146,7 @@ class VideoPlayer(QWidget):
     def stop_video(self):
         self.player.stop()
         self.player.setSource(QUrl())
+        self._pending_start_position_ms = 0
 
     def toggle_play(self):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -174,6 +177,15 @@ class VideoPlayer(QWidget):
                 self._show_controls()
 
     def _handle_media_status(self, status):
+        if (self._pending_start_position_ms > 0
+                and status in (
+                    QMediaPlayer.MediaStatus.LoadedMedia,
+                    QMediaPlayer.MediaStatus.BufferedMedia,
+                    QMediaPlayer.MediaStatus.BufferingMedia,
+                )):
+            self.player.setPosition(self._pending_start_position_ms)
+            self._pending_start_position_ms = 0
+
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
             self._on_back()
 

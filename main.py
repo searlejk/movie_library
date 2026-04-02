@@ -1,5 +1,6 @@
 import sys
 import time
+import json
 from pathlib import Path
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QWidget, QScrollArea, QVBoxLayout,
@@ -30,6 +31,7 @@ KEY_MAP = {
 
 TOKEN_LABELS = {"SPACE": "Space", "DEL": "Delete", "CLEAR": "Clear", "EXIT": "Exit"}
 MOVS_DIR = Path(__file__).resolve().parent / "movs"
+WATCH_STATE_PATH = Path(__file__).resolve().parent / "watch_state.json"
 
 
 def make_anim(target, prop, start, end, duration, parent=None):
@@ -485,6 +487,9 @@ class MainWindow(QWidget):
     SEARCH_VERT_COOLDOWN_MS = 150
     SEARCH_BAR_ANIM_MS = 600
     VIDEO_RETURN_TRANSITION_MS = 400
+    RESUME_LIMIT = 3
+    WATCH_THRESHOLD_RATIO = 0.25
+    RESUME_CLEAR_RATIO = 0.99
 
     def __init__(self):
         super().__init__()
@@ -496,8 +501,13 @@ class MainWindow(QWidget):
         self._return_to = "grid"
         self._is_video_transitioning = False
         self._current_video_animal = None
+        self._current_video_session_qualified = False
         self._last_watched_by_animal = {}
+        self._watch_qualified_by_animal = {}
+        self._resume_positions_ms = {}
+        self._resume_order = []
         self._duration_seconds_by_animal = {name: 15 for name in ANIMAL_NAMES}
+        self._load_watch_state()
 
         screen = QApplication.primaryScreen().availableGeometry()
         sw, sh = screen.width(), screen.height()
@@ -530,6 +540,8 @@ class MainWindow(QWidget):
         self._video_player = VideoPlayer(self)
         self._video_player.back_transition_started.connect(self._on_video_back_transition_started)
         self._video_player.back_pressed.connect(self._on_video_back_transition_finished)
+        self._video_player.player.positionChanged.connect(self._on_video_position_changed)
+        self._video_player.player.durationChanged.connect(self._on_video_duration_changed)
 
         # Browse page setup
         self._browse_page = QWidget(self)
@@ -679,6 +691,7 @@ class MainWindow(QWidget):
         self._return_to = from_where
         self._is_video_transitioning = True
         self._current_video_animal = animal_name
+        self._current_video_session_qualified = False
         video_path = MOVS_DIR / f"{animal_name}.mp4"
         if not video_path.exists():
             self._is_video_transitioning = False
@@ -686,7 +699,16 @@ class MainWindow(QWidget):
             print(f"Missing video for '{animal_name}': {video_path}")
             return
 
-        self._video_player.load_video(str(video_path))
+        start_ms = self._register_resume_slot(animal_name)
+
+        if self._watch_qualified_by_animal.get(animal_name, False):
+            self._last_watched_by_animal[animal_name] = datetime.now()
+
+        self._save_watch_state()
+        self._grid.refresh_subtitles()
+        self._search_panel.refresh_subtitles()
+
+        self._video_player.load_video(str(video_path), start_position_ms=start_ms)
         self._start_video_enter_transition()
 
     def _start_video_enter_transition(self):
@@ -738,6 +760,13 @@ class MainWindow(QWidget):
 
     def _on_video_back_transition_started(self):
         self._is_video_transitioning = True
+
+        if self._current_video_animal:
+            self._save_resume_for_current_video()
+            if self._watch_qualified_by_animal.get(self._current_video_animal, False):
+                self._last_watched_by_animal[self._current_video_animal] = datetime.now()
+            self._save_watch_state()
+
         self._top_stack.setCurrentWidget(self._browse_page)
         self._prepare_browse_return_state()
         self._video_return_group.stop()
@@ -774,12 +803,133 @@ class MainWindow(QWidget):
         self._is_video_transitioning = False
 
         if self._current_video_animal:
-            self._last_watched_by_animal[self._current_video_animal] = datetime.now()
             self._grid.refresh_subtitles()
             self._search_panel.refresh_subtitles()
             self._current_video_animal = None
+            self._current_video_session_qualified = False
 
         self.setFocus()
+
+    def _load_watch_state(self):
+        if not WATCH_STATE_PATH.exists():
+            return
+
+        try:
+            data = json.loads(WATCH_STATE_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, ValueError):
+            return
+
+        last_watched_raw = data.get("last_watched_iso", {})
+        for animal, ts in last_watched_raw.items():
+            if animal in ANIMAL_NAMES and isinstance(ts, str):
+                try:
+                    self._last_watched_by_animal[animal] = datetime.fromisoformat(ts)
+                except ValueError:
+                    continue
+
+        qualified_raw = data.get("watch_qualified", {})
+        for animal, qualified in qualified_raw.items():
+            if animal in ANIMAL_NAMES:
+                self._watch_qualified_by_animal[animal] = bool(qualified)
+
+        resume_raw = data.get("resume_positions_ms", {})
+        for animal, position in resume_raw.items():
+            if animal in ANIMAL_NAMES:
+                try:
+                    self._resume_positions_ms[animal] = max(0, int(position))
+                except (TypeError, ValueError):
+                    continue
+
+        order_raw = data.get("resume_order", [])
+        if isinstance(order_raw, list):
+            self._resume_order = [
+                animal for animal in order_raw
+                if animal in self._resume_positions_ms
+            ][-self.RESUME_LIMIT:]
+
+    def _save_watch_state(self):
+        payload = {
+            "last_watched_iso": {
+                animal: when.isoformat()
+                for animal, when in self._last_watched_by_animal.items()
+            },
+            "watch_qualified": self._watch_qualified_by_animal,
+            "resume_positions_ms": self._resume_positions_ms,
+            "resume_order": self._resume_order,
+        }
+        try:
+            WATCH_STATE_PATH.write_text(
+                json.dumps(payload, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    def _register_resume_slot(self, animal_name):
+        if animal_name in self._resume_order:
+            self._resume_order.remove(animal_name)
+        self._resume_order.append(animal_name)
+
+        while len(self._resume_order) > self.RESUME_LIMIT:
+            dropped = self._resume_order.pop(0)
+            self._resume_positions_ms.pop(dropped, None)
+
+        return self._resume_positions_ms.get(animal_name, 0)
+
+    def _clear_resume_for(self, animal_name):
+        self._resume_positions_ms.pop(animal_name, None)
+        if animal_name in self._resume_order:
+            self._resume_order.remove(animal_name)
+
+    def _is_near_end(self, position_ms, duration_ms):
+        if duration_ms <= 0:
+            return False
+        return position_ms >= int(duration_ms * self.RESUME_CLEAR_RATIO)
+
+    def _save_resume_for_current_video(self):
+        if not self._current_video_animal:
+            return
+
+        position_ms = max(0, int(self._video_player.player.position()))
+        duration_ms = max(0, int(self._video_player.player.duration()))
+
+        if self._is_near_end(position_ms, duration_ms):
+            self._clear_resume_for(self._current_video_animal)
+            return
+
+        self._resume_positions_ms[self._current_video_animal] = position_ms
+
+    def _on_video_duration_changed(self, duration_ms):
+        if self._current_video_animal and duration_ms > 0:
+            self._duration_seconds_by_animal[self._current_video_animal] = int(duration_ms / 1000)
+            self._grid.refresh_subtitles()
+            self._search_panel.refresh_subtitles()
+
+    def _on_video_position_changed(self, position_ms):
+        if not self._current_video_animal:
+            return
+
+        duration_ms = self._video_player.player.duration()
+        if duration_ms <= 0:
+            return
+
+        if self._is_near_end(position_ms, duration_ms):
+            had_resume = (
+                self._current_video_animal in self._resume_positions_ms
+                or self._current_video_animal in self._resume_order
+            )
+            self._clear_resume_for(self._current_video_animal)
+            if had_resume:
+                self._save_watch_state()
+
+        if (not self._current_video_session_qualified
+                and position_ms >= int(duration_ms * self.WATCH_THRESHOLD_RATIO)):
+            self._current_video_session_qualified = True
+            self._watch_qualified_by_animal[self._current_video_animal] = True
+            self._last_watched_by_animal[self._current_video_animal] = datetime.now()
+            self._save_watch_state()
+            self._grid.refresh_subtitles()
+            self._search_panel.refresh_subtitles()
 
     def _format_duration(self, total_seconds):
         total_seconds = max(0, int(total_seconds))
