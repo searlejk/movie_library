@@ -41,6 +41,7 @@ python main.py
 - [x] Add the same animation (but reversed) for when I select a movie (its not pretty but its something)
 - [x] Remove all mouse input code from both files, video_player and main
 - [x] When the mp4 video opens up in video_player I want the button to be already disappeared by default
+- [x] Make tiny change so that video truly goes full screen when the buttons disappear
 
 - [ ] Create a way to store hundreds of mp4 files in an organized way
 - [ ] Have a program make mp4 videos that are 30 seconds long of each animal name just being displayed on the screen, white text on black background

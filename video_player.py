@@ -14,7 +14,7 @@ class VideoPlayer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Video Player")
-        self.setStyleSheet("background-color: #1a1b26;")
+        self.setStyleSheet("background-color: #000000;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.player = QMediaPlayer()
@@ -65,10 +65,14 @@ class VideoPlayer(QWidget):
 
         # --- Layout is identical to the original ---
         top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(0)
         top_layout.addWidget(self.btn_back)
         top_layout.addStretch()
 
         controls = QHBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(0)
         controls.addStretch()
         controls.addWidget(self.btn_rw)
         controls.addWidget(self.btn_play)
@@ -76,7 +80,8 @@ class VideoPlayer(QWidget):
         controls.addStretch()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addLayout(top_layout)
         layout.addWidget(self.video_widget)
         layout.addWidget(self.slider)
